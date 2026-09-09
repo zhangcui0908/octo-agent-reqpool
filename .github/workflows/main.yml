@@ -17,17 +17,22 @@ jobs:
       - name: 扫描 issue 变化
         id: scan
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: *** github.token }}
         run: |
           LAST_STATE="$(cat .issue-state.json 2>/dev/null || echo '[]')"
           CUR="$(gh api "repos/${{ github.repository }}/issues?state=all&per_page=100&sort=updated" --jq '[.[] | select(.pull_request == null) | {number, title, state, labels: [.labels[].name], updated_at}]')"
 
           echo "$CUR" > .issue-state.json
 
-          python3 << 'PYEOF'
+          # 用文件传替代 heredoc 传参，解决单引号引起的变量展开问题
+          cat > /tmp/scan_script.py << 'SCRIPTEOF'
           import json, os
-          prev = json.loads(os.environ.get('LAST_STATE', '[]'))
-          cur = json.loads('''$CUR''')
+
+          prev_raw = os.environ.get('LAST_STATE', '[]')
+          cur_raw = os.environ.get('CUR_DATA', '[]')
+          prev = json.loads(prev_raw)
+          cur = json.loads(cur_raw)
+
           pmap = {i['number']: i for i in prev} if isinstance(prev, list) else {}
           cmap = {i['number']: i for i in cur}
           changes = []
@@ -40,11 +45,25 @@ jobs:
                   changes.append(f"🔄 STATE #{n} {p['state']}→{c['state']} {c['title']}")
               elif set(p['labels']) != set(c['labels']):
                   changes.append(f"🏷 LABEL #{n} {'/'.join(p['labels'])}→{'/'.join(c['labels'])} {c['title']}")
-          open('changes.txt', 'w').write('\n'.join(changes))
+
+          # 写入 changes.txt
+          with open('changes.txt', 'w') as f:
+              f.write('\n'.join(changes) + '\n')
+
+          # 输出到 GITHUB_OUTPUT
+          gh_out = os.environ.get('GITHUB_OUTPUT', '')
+          if gh_out:
+              with open(gh_out, 'a') as f:
+                  f.write(f"count={len(changes)}\n")
+
           print(f"count={len(changes)}")
           for ch in changes:
               print(ch)
-          PYEOF
+          SCRIPTEOF
+
+          export LAST_STATE
+          export CUR_DATA="$CUR"
+          python3 /tmp/scan_script.py
 
       - name: 记录执行日志
         if: always()
@@ -54,6 +73,6 @@ jobs:
         run: |
           git config user.name "octo-pm-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add .issue-state.json scan-history.log
+          git add .issue-state.json scan-history.log changes.txt
           git commit -m "chore: 定时扫描记录 $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "无变化"
           git push
