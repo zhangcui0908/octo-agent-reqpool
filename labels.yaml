@@ -1,0 +1,59 @@
+# Label 体系定义
+# 类型 / 优先级 / 状态 三维标签
+
+labels:
+
+  # === 类型维度 ===
+  - name: "type:bug"
+    description: "Bug 反馈 — 功能异常、报错、不符合预期"
+    color: "d73a4a"  # 红色
+
+  - name: "type:feature"
+    description: "新需求 — 功能建议、能力扩展"
+    color: "a2eeef"  # 青色
+
+  - name: "type:question"
+    description: "问题咨询 — 产品/技术疑问"
+    color: "d876e3"  # 紫色
+
+  # === 优先级维度 ===
+  - name: "P0"
+    description: "紧急 — 阻塞生产、数据丢失、安全漏洞，立即处理"
+    color: "b60205"  # 深红
+
+  - name: "P1"
+    description: "高优先 — 重要功能异常、影响核心体验"
+    color: "d93f0b"  # 橙红
+
+  - name: "P2"
+    description: "中优先 — 次要功能优化、体验改进"
+    color: "fbca04"  # 黄色
+
+  - name: "P3"
+    description: "低优先 — 锦上添花、文档、非功能性建议"
+    color: "0e8a16"  # 绿色
+
+  # === 状态维度 ===
+  - name: "status:inbox"
+    description: "待确认 — 新创建，等待分类和优先级评估"
+    color: "e4e669"  # 黄绿
+
+  - name: "status:triaged"
+    description: "已确认 — 已分类、已定优先级，待进入处理流程"
+    color: "5319e7"  # 紫蓝
+
+  - name: "status:prd-drafting"
+    description: "PRD 撰写中 — PM 正在编写产品需求文档"
+    color: "1d76db"  # 蓝
+
+  - name: "status:in-review"
+    description: "评审中 — PRD/方案在等待 review"
+    color: "006b75"  # 深青
+
+  - name: "status:done"
+    description: "已完成 — 需求已实现/问题已修复"
+    color: "c2e0c6"  # 浅绿
+
+  - name: "status:wontfix"
+    description: "不处理 — 设计如此、无法重现、超出范围"
+    color: "ffffff"  # 白色
