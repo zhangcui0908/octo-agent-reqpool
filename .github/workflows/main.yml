@@ -1,12 +1,59 @@
 name: 定时扫描需求池
 on:
   schedule:
-    - cron: '*/30 * * * *'  # 每30分钟
+    - cron: '*/5 * * * *'  # 每5分钟
+  workflow_dispatch: {}  # 支持手动触发
+
+permissions:
+  contents: write
+  issues: write
+
 jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          echo "扫描时间：$(date)"
-          # 检查有无新issue、标签变化
-          curl -s https://api.github.com/repos/你的名字/octo-agent-reqpool/issues
+      - uses: actions/checkout@v4
+
+      - name: 扫描 issue 变化
+        id: scan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LAST_STATE="$(cat .issue-state.json 2>/dev/null || echo '[]')"
+          CUR="$(gh api "repos/${{ github.repository }}/issues?state=all&per_page=100&sort=updated" --jq '[.[] | select(.pull_request == null) | {number, title, state, labels: [.labels[].name], updated_at}]')"
+
+          echo "$CUR" > .issue-state.json
+
+          python3 << 'PYEOF'
+          import json, os
+          prev = json.loads(os.environ.get('LAST_STATE', '[]'))
+          cur = json.loads('''$CUR''')
+          pmap = {i['number']: i for i in prev} if isinstance(prev, list) else {}
+          cmap = {i['number']: i for i in cur}
+          changes = []
+          for n in sorted(set(cmap) - set(pmap)):
+              c = cmap[n]
+              changes.append(f"📦 NEW #{n} [{c['state']}] {c['title']} 标签={'/'.join(c['labels']) or '无'}")
+          for n in sorted(set(pmap) & set(cmap)):
+              p, c = pmap[n], cmap[n]
+              if p['state'] != c['state']:
+                  changes.append(f"🔄 STATE #{n} {p['state']}→{c['state']} {c['title']}")
+              elif set(p['labels']) != set(c['labels']):
+                  changes.append(f"🏷 LABEL #{n} {'/'.join(p['labels'])}→{'/'.join(c['labels'])} {c['title']}")
+          open('changes.txt', 'w').write('\n'.join(changes))
+          print(f"count={len(changes)}")
+          for ch in changes:
+              print(ch)
+          PYEOF
+
+      - name: 记录执行日志
+        if: always()
+        run: echo "scanned_at=$(date -u +%Y-%m-%dT%H:%M:%SZ) changes=${{ steps.scan.outputs.count }}" >> scan-history.log
+
+      - name: 提交扫描状态与日志
+        run: |
+          git config user.name "octo-pm-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add .issue-state.json scan-history.log
+          git commit -m "chore: 定时扫描记录 $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "无变化"
+          git push
