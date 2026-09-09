@@ -1,0 +1,12 @@
+name: 定时扫描需求池
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # 每30分钟
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "扫描时间：$(date)"
+          # 检查有无新issue、标签变化
+          curl -s https://api.github.com/repos/你的名字/octo-agent-reqpool/issues
